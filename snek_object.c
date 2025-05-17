@@ -5,6 +5,34 @@
 
 #include "snekobject.h"
 
+void refcount_dec(snek_object_t *obj) {
+  if (obj == NULL){
+    return;
+  }
+  obj->refcount--;
+  if (obj->refcount == 0){
+    return refcount_free(obj);
+  }
+  return;
+}
+
+void refcount_free(snek_object_t *obj) {
+  switch (obj->kind) {
+    case INTEGER:
+    case FLOAT:
+      break;
+    case STRING:
+      free(obj->data.v_string);
+      break;
+    default:
+      exit(1);
+  }
+
+  free(obj);
+}
+
+// don't touch below this line
+
 void refcount_inc(snek_object_t *obj) {
   if (obj == NULL) {
     return;
@@ -13,8 +41,6 @@ void refcount_inc(snek_object_t *obj) {
   obj->refcount++;
   return;
 }
-
-// don't touch below this line
 
 snek_object_t *_new_snek_object() {
   snek_object_t *obj = calloc(1, sizeof(snek_object_t));
