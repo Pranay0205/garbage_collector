@@ -23,7 +23,17 @@ void vm_free(vm_t *vm) {
   free(vm);
 }
 
-// don't touch below this line
+void frame_reference_object(frame_t *frame, snek_object_t *obj) {
+  if (frame == NULL){
+    return;
+  }
+
+  if (obj == NULL){
+    return;
+  }
+  
+  stack_push(frame->references, obj);
+}
 
 vm_t *vm_new() {
   vm_t *vm = malloc(sizeof(vm_t));
