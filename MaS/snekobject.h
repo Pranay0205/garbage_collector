@@ -1,9 +1,12 @@
+#pragma once
 #include <stdbool.h>
 #include <stddef.h>
 
 #include "stack.h"
 
 typedef struct SnekObject snek_object_t;
+
+void snek_object_free(snek_object_t *obj);
 
 typedef struct {
   size_t size;
