@@ -1,37 +1,68 @@
 #include "vm.h"
 #include "stack.h"
 
-void vm_free(vm_t *vm) {
-
-  // Free all the frames
-  for(int i = 0; i < vm->frames->count; i++){
-    frame_free(vm->frames->data[i]);
+void trace(vm_t *vm) {
+  stack_t *gray_objects = stack_new(8);
+  if(gray_objects == NULL){
+    return;
   }
-
-  // Free the stack holding the frames
-  stack_free(vm->frames);
-
-  // Free snek objects
   for(int i = 0; i < vm->objects->count; i++){
-    snek_object_free(vm->objects->data[i]);
+    snek_object_t *obj = vm->objects->data[i];
+    if(obj->is_marked){
+      stack_push(gray_objects, obj);
+    }
   }
 
-  // Free the snek object stack
-  stack_free(vm->objects);
+  while(gray_objects->count != 0){
+    snek_object_t *obj = stack_pop(gray_objects);
+    trace_blacken_object(gray_objects, obj);
+  }
 
-  // Free the VM
-  free(vm);
+  stack_free(gray_objects);
+}
+
+void trace_blacken_object(stack_t *gray_objects, snek_object_t *obj) {
+  switch(obj->kind){
+    case INTEGER:
+    case FLOAT:
+    case STRING:
+         break;
+    case VECTOR3:
+        snek_vector_t vec = obj->data.v_vector3;
+        trace_mark_object(gray_objects, vec.x);
+        trace_mark_object(gray_objects, vec.y);
+        trace_mark_object(gray_objects, vec.z);
+        break;
+    case ARRAY:
+        int size = obj->data.v_array.size;
+        for(int i = 0; i < size; i++){
+          trace_mark_object(gray_objects, obj->data.v_array.elements[i]);
+        }
+        break;      
+  }
+}
+
+void trace_mark_object(stack_t *gray_objects, snek_object_t *obj) {
+  if(obj == NULL || obj->is_marked){
+    return;
+  }
+  obj->is_marked = true;
+  stack_push(gray_objects, obj);  
+}
+
+// don't touch below this line
+
+void mark(vm_t *vm) {
+  for (size_t i = 0; i < vm->frames->count; i++) {
+    frame_t *frame = vm->frames->data[i];
+    for (size_t j = 0; j < frame->references->count; j++) {
+      snek_object_t *obj = frame->references->data[j];
+      obj->is_marked = true;
+    }
+  }
 }
 
 void frame_reference_object(frame_t *frame, snek_object_t *obj) {
-  if (frame == NULL){
-    return;
-  }
-
-  if (obj == NULL){
-    return;
-  }
-  
   stack_push(frame->references, obj);
 }
 
@@ -46,8 +77,20 @@ vm_t *vm_new() {
   return vm;
 }
 
-void vm_track_object(vm_t *vm, snek_object_t *obj) {
-  stack_push(vm->objects, obj);
+void vm_free(vm_t *vm) {
+  // Free the stack frames, and then their container
+  for (int i = 0; i < vm->frames->count; i++) {
+    frame_free(vm->frames->data[i]);
+  }
+  stack_free(vm->frames);
+
+  // Free the objects, and then their container
+  for (int i = 0; i < vm->objects->count; i++) {
+    snek_object_free(vm->objects->data[i]);
+  }
+  stack_free(vm->objects);
+
+  free(vm);
 }
 
 void vm_frame_push(vm_t *vm, frame_t *frame) {
@@ -65,4 +108,8 @@ frame_t *vm_new_frame(vm_t *vm) {
 void frame_free(frame_t *frame) {
   stack_free(frame->references);
   free(frame);
+}
+
+void vm_track_object(vm_t *vm, snek_object_t *obj) {
+  stack_push(vm->objects, obj);
 }
